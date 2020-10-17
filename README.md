@@ -34,10 +34,6 @@ http://nginx.org/download/nginx-1.19.3.tar.gz
 * Extact the nginx source and apply the patch from this git repo.
 
 ```
-NGINX_NAME="nginx-1.19.3"
-NGINX_TMP_DIR="/tmp/nginx"
-NGINX_FIPS_PATCH_NAME="$NGINX_NAME-fips.patch"
-
 cd /tmp
 wget http://nginx.org/download/nginx-1.19.3.tar.gz
 tar -zxvf nginx-1.19.3.tar.gz
