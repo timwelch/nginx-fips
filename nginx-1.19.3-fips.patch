@@ -1,0 +1,149 @@
+--- nginx-1.19.3/auto/cc/conf	2020-09-29 14:32:10.000000000 +0000
++++ nginx-1.19.3-FIPSPATCH/auto/cc/conf	2020-10-16 19:23:18.126856838 +0000
+@@ -3,7 +3,36 @@
+ # Copyright (C) Nginx, Inc.
+ 
+ 
+-LINK="\$(CC)"
++#
++# BEGIN: FIPS MODE PATCH TO COMPILE USING fipsld
++#
++_CC="\$(CC)"
++if [ "$NGX_FIPS_MODE" == NO ]; then
++   echo "FIPS Mode is not requested."
++else
++   echo "FIPS Mode is requested."
++   fips_mode=`cat /proc/sys/crypto/fips_enabled`
++   if [ "$fips_mode" == "1" ]; then
++      echo "FIPS Mode is Enabled. "
++      fipsld_path=`find / -name "fipsld" |head -1`
++      if [ -z "$fipsld_path" ]; then
++         echo "FAILED to find fipsld..."
++         exit 1
++      fi
++      _CC="CC=$CC $fipsld_path"
++      echo "FIPS MODE fipsld found at: $_CC"
++   else
++      echo "FIPS Mode is not enabled or supported. "
++      exit 1
++   fi
++fi
++LINK="\$(_CC)"
++#
++# END: FIPS MODE PATCH TO COMPILE USING fipsld
++#
++
++
++
+ 
+ MAIN_LINK=
+ MODULE_LINK="-shared"
+diff -Naur nginx-1.19.3/auto/make nginx-1.19.3-FIPSPATCH/auto/make
+--- nginx-1.19.3/auto/make	2020-09-29 14:32:10.000000000 +0000
++++ nginx-1.19.3-FIPSPATCH/auto/make	2020-10-16 19:22:52.430745445 +0000
+@@ -21,6 +21,7 @@
+ cat << END                                                     > $NGX_MAKEFILE
+ 
+ CC =	$CC
++_CC =   $_CC
+ CFLAGS = $CFLAGS
+ CPP =	$CPP
+ LINK =	$LINK
+@@ -240,9 +241,9 @@
+ # ngx_modules.c
+ 
+ if test -n "$NGX_PCH"; then
+-    ngx_cc="\$(CC) $ngx_compile_opt \$(CFLAGS) $ngx_use_pch \$(ALL_INCS)"
++    ngx_cc="\$(_CC) $ngx_compile_opt \$(CFLAGS) $ngx_use_pch \$(ALL_INCS)"
+ else
+-    ngx_cc="\$(CC) $ngx_compile_opt \$(CFLAGS) \$(CORE_INCS)"
++    ngx_cc="\$(_CC) $ngx_compile_opt \$(CFLAGS) \$(CORE_INCS)"
+ fi
+ 
+ cat << END                                                    >> $NGX_MAKEFILE
+@@ -279,9 +280,9 @@
+ if [ $HTTP = YES ]; then
+ 
+     if test -n "$NGX_PCH"; then
+-        ngx_cc="\$(CC) $ngx_compile_opt \$(CFLAGS) $ngx_use_pch \$(ALL_INCS)"
++        ngx_cc="\$(_CC) $ngx_compile_opt \$(CFLAGS) $ngx_use_pch \$(ALL_INCS)"
+     else
+-        ngx_cc="\$(CC) $ngx_compile_opt \$(CFLAGS) \$(CORE_INCS) \$(HTTP_INCS)"
++        ngx_cc="\$(_CC) $ngx_compile_opt \$(CFLAGS) \$(CORE_INCS) \$(HTTP_INCS)"
+         ngx_perl_cc="\$(CC) $ngx_compile_opt \$(NGX_PERL_CFLAGS)"
+         ngx_perl_cc="$ngx_perl_cc \$(CORE_INCS) \$(HTTP_INCS)"
+     fi
+@@ -323,9 +324,9 @@
+ if [ $MAIL = YES ]; then
+ 
+     if test -n "$NGX_PCH"; then
+-        ngx_cc="\$(CC) $ngx_compile_opt \$(CFLAGS) $ngx_use_pch \$(ALL_INCS)"
++        ngx_cc="\$(_CC) $ngx_compile_opt \$(CFLAGS) $ngx_use_pch \$(ALL_INCS)"
+     else
+-        ngx_cc="\$(CC) $ngx_compile_opt \$(CFLAGS) \$(CORE_INCS) \$(MAIL_INCS)"
++        ngx_cc="\$(_CC) $ngx_compile_opt \$(CFLAGS) \$(CORE_INCS) \$(MAIL_INCS)"
+     fi
+ 
+     for ngx_src in $MAIL_SRCS
+@@ -353,9 +354,9 @@
+ if [ $STREAM = YES ]; then
+ 
+     if test -n "$NGX_PCH"; then
+-        ngx_cc="\$(CC) $ngx_compile_opt \$(CFLAGS) $ngx_use_pch \$(ALL_INCS)"
++        ngx_cc="\$(_CC) $ngx_compile_opt \$(CFLAGS) $ngx_use_pch \$(ALL_INCS)"
+     else
+-        ngx_cc="\$(CC) $ngx_compile_opt \$(CFLAGS) \$(CORE_INCS) \$(STREAM_INCS)"
++        ngx_cc="\$(_CC) $ngx_compile_opt \$(CFLAGS) \$(CORE_INCS) \$(STREAM_INCS)"
+     fi
+ 
+     for ngx_src in $STREAM_SRCS
+@@ -382,7 +383,7 @@
+ 
+ if test -n "$MISC_SRCS"; then
+ 
+-    ngx_cc="\$(CC) $ngx_compile_opt \$(CFLAGS) $ngx_use_pch \$(ALL_INCS)"
++    ngx_cc="\$(_CC) $ngx_compile_opt \$(CFLAGS) $ngx_use_pch \$(ALL_INCS)"
+ 
+     for ngx_src in $MISC_SRCS
+     do
+@@ -408,7 +409,7 @@
+ 
+ if test -n "$NGX_ADDON_SRCS"; then
+ 
+-    ngx_cc="\$(CC) $ngx_compile_opt \$(CFLAGS) $ngx_use_pch \$(ALL_INCS)"
++    ngx_cc="\$(_CC) $ngx_compile_opt \$(CFLAGS) $ngx_use_pch \$(ALL_INCS)"
+ 
+     for ngx_src in $NGX_ADDON_SRCS
+     do
+@@ -492,9 +493,9 @@
+ # dynamic modules
+ 
+ if test -n "$NGX_PCH"; then
+-    ngx_cc="\$(CC) $ngx_compile_opt $ngx_pic_opt \$(CFLAGS) $ngx_use_pch \$(ALL_INCS)"
++    ngx_cc="\$(_CC) $ngx_compile_opt $ngx_pic_opt \$(CFLAGS) $ngx_use_pch \$(ALL_INCS)"
+ else
+-    ngx_cc="\$(CC) $ngx_compile_opt $ngx_pic_opt \$(CFLAGS) \$(ALL_INCS)"
++    ngx_cc="\$(_CC) $ngx_compile_opt $ngx_pic_opt \$(CFLAGS) \$(ALL_INCS)"
+     ngx_perl_cc="\$(CC) $ngx_compile_opt $ngx_pic_opt \$(NGX_PERL_CFLAGS)"
+     ngx_perl_cc="$ngx_perl_cc \$(ALL_INCS)"
+ fi
+diff -Naur nginx-1.19.3/auto/options nginx-1.19.3-FIPSPATCH/auto/options
+--- nginx-1.19.3/auto/options	2020-09-29 14:32:10.000000000 +0000
++++ nginx-1.19.3-FIPSPATCH/auto/options	2020-10-16 19:23:05.158808431 +0000
+@@ -5,6 +5,7 @@
+ 
+ help=no
+ 
++NGX_FIPS_MODE=NO
+ NGX_PREFIX=
+ NGX_SBIN_PATH=
+ NGX_MODULES_PATH=
+@@ -183,6 +184,7 @@
+     case "$option" in
+         --help)                          help=yes                   ;;
+ 
++        --fips-mode)                     NGX_FIPS_MODE=YES          ;;
+         --prefix=)                       NGX_PREFIX="!"             ;;
+         --prefix=*)                      NGX_PREFIX="$value"        ;;
+         --sbin-path=*)                   NGX_SBIN_PATH="$value"     ;;
+
